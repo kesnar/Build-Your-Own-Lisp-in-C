@@ -28,8 +28,49 @@ void add_history(char* unused) {}
 #include <editline/history.h>
 #endif
 
-// Declare a buffer for use input of size 2048
-static char input[2048];
+int number_of_nodes(mpc_ast_t* t) {
+	if (t->children_num == 0) {
+		return 1;
+	}
+	if (t->children_num >= 1) {
+		int total = 1;
+		for (int i=0; i< t->children_num; i++) {
+			total = total + number_of_nodes(t->children[i]);
+		}
+		return total;
+	}
+	return 0;
+}
+
+long eval_op(long x, char* op, long y) {
+	if (strcmp(op, "+") == 0) {return x + y;}
+	else if (strcmp(op, "-") == 0) {return x - y;}
+	else if (strcmp(op, "*") == 0) {return x * y;}
+	else /*(strcmp(op, "/") == 0)*/ {return x / y;}
+}
+
+long eval(mpc_ast_t* t) {
+	
+	//if tagged as a number, return it immediatly
+	if (strstr(t->tag, "number")) {
+		return atoi(t->contents);
+	}
+
+	//The operator is always second child
+	char *op = t->children[1]->contents;
+
+	//We store the third child in x
+	long x = eval(t->children[2]);
+
+	//Iterate the remaining children and combining
+	int i=3;
+	while (strstr(t->children[i]->tag, "expr"))
+	{
+		x = eval_op(x, op, eval(t->children[i]));
+		i++;
+	}
+	return x;
+}
 
 int main(int argc, char** argv) {
 
@@ -64,15 +105,15 @@ int main(int argc, char** argv) {
 		//Attempt to parse the user input
 		mpc_result_t r;
 		if (mpc_parse("<stdin>", input, Lispy, &r)) {
-			//On Success print the AST
-			mpc_ast_print(r.output);
+			long result = eval(r.output);
+			//printf("hello");
+			printf("%li\n", result);
 			mpc_ast_delete(r.output);
 		} else {
 			//Otherwise print the error
 			mpc_err_print(r.error);
 			mpc_err_delete(r.error);
 		}
-
 		free(input);
 	}
 
